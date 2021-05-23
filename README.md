@@ -8,5 +8,7 @@ For the assignment I used TF:IDF weights in order to calculate the Cosine Simila
 ###### Language used, how to run your code, if you attempted the extra credit (stemming), etc. 
   
 **Language Used:** Python 3.7.7
+  
 **How to run your code:** python VSM.py <Query_List> <Results File>
+  
 **Stemming/extra credit was not run originally in the Tokenizer created in Assignment 1.

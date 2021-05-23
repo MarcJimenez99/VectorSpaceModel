@@ -1,12 +1,4 @@
-# Each line of an output file should specify one retrieved document, in the following format:
-# <query−number>Q0<docno> <rank> <score>Exp
-
-# <query−number> is the number preceding the query in the query list
-# <docno> is the document number, from the< DOCNO >field (which we asked you to index)
-# <rank> is the document rank: an integer from 1-100
-# <score> is the retrieval models matching score for the document
-# Q0 and Exp are entered literally (because we will use a TREC evaluation code, so the output has to match exactly)
-
+import sys
 import parsing
 import re
 import string
@@ -14,11 +6,9 @@ import math
 
 query_map = {}
 query_tfidf_map = {}
-
-doc_map = parsing.doc_docID_map
 number_of_documents_in_corpus = (parsing.docID) - 1
 
-with open('query_list.txt') as f:
+with open(sys.argv[1]) as f:
     lines = [line.rstrip() for line in f]
 
 
@@ -68,24 +58,17 @@ def get_query_TF_IDF():
         query = query_map[key]
         while(i < len(query)):
             currentTerm = query[i]
-            # print(f'Current Term: {currentTerm}')
             if (getDocFreq(currentTerm) == 0):
                 documentIDF = 0
-                # prelog = 0
             else:
-                # prelog = number_of_documents_in_corpus / getDocFreq(currentTerm)
                 documentIDF = math.log(number_of_documents_in_corpus / getDocFreq(currentTerm))
-            # print(f'DocumentIDF: {number_of_documents_in_corpus} / {getDocFreq(currentTerm)} = {prelog} => log({documentIDF})')
             termfreq = 0
             for word in query:
                 if(word is currentTerm):
                     termfreq += 1
             queryTF = termfreq / len(query)
-            # print(f'QueryTF: {termfreq} / {len(query)} = {queryTF}')
             query_TFIDF = queryTF * documentIDF
-            # print(f'QueryTFIDF: {queryTF} * {documentIDF} = {query_TFIDF}')
             queryterm_tfIDF = (currentTerm, query_TFIDF)
-            # print(f'Term + TFIDF = {queryterm_tfIDF}')
             queryTFIDF.append(queryterm_tfIDF)
             i += 1
 
@@ -99,7 +82,8 @@ def findTopTenDocuments(CoSim_scores_list):
     return CoSim_scores_list
 
 def outputToFile(CoSim_scores_map):
-    resultsFile = open("results.txt", "a")
+    resultsFile = open(sys.argv[2], "a")
+    resultsFile.truncate(0)
     # <query−number>Q0<docno> <rank> <score>Exp
     i = 0
     for key in CoSim_scores_map:
@@ -115,42 +99,38 @@ def outputToFile(CoSim_scores_map):
                 resultsFile.write(str1)
             else:
                 break
+    resultsFile.close()
 
 def main():
+    #Break down query_list.txt into dictionary
     getQueryMap()
+    #Calculate TF_IDF for each query
     get_query_TF_IDF()
-
+    #CoSim_scores_map holds the Cosine Similarity for each query and their respective documents
     CoSim_scores_map = {}
+    #Holds the cosine similarity for a given query and all documents
     CoSim_scores_list = []
+
+    #Iterates through each query in our query_tf_idf_map
+        #Then iterates through each document and calculates cosine similarity
     for queryno in query_tfidf_map:
-        #list contains tuples = (docno, score)
-        # CoSim_scores_list = []
         query = query_tfidf_map[queryno]
-        # print(f'QueryNo: {queryno} | Query: {query}({len(query)})')
-        # print(f'')
         CoSim_document = []
         for docno in parsing.doc_docID_map:
-            # query = query_tfidf_map[queryno]
             document_tfidf_list = []
             for tuple in query:
                 term = tuple[0]
-                # print(f'term: {term}')
                 termFreq = getTermFreqInDoc(term, docno)
                 docFreq = getDocFreq(term)
-                # print(f'termFreqInDoc: {termFreq}')
-                # print(f'NumberOfDocumentsContainingTerm: {docFreq}')
                 if (termFreq != 0):
                     if (docFreq == 0):
                         documentIDF = 0
                     else:
                         documentIDF = math.log(number_of_documents_in_corpus / docFreq)
                     docTF = termFreq / getDocumentInfo(docno)
-                    # print(f'DOCTF: {termFreq} / {getDocumentInfo(docno)} = {docTF}')
                     doc_TFIDF = docTF * documentIDF
-                    # print(f'DOCTFIDF: {docTF} * {documentIDF}')
                     document_tfidf_list.append((term, doc_TFIDF))
                 else:
-                    # continue
                     document_tfidf_list.append((term, 0))
             if (len(document_tfidf_list) == 0):
                 continue
@@ -158,25 +138,15 @@ def main():
                 #Calculate the Cosine similarity
                 query_values = []
                 document_values = []
-                # print(f'PreQuery: {query}')
-                # print(f'PreDoc: {document_tfidf_list}')
                 for tuple in query:
                     for element in document_tfidf_list:
                         if (element[0] == tuple[0]):
-                            # termFreq = getTermFreqInDoc(term, docno)
-                            # docFreq = getDocFreq(term)
-                            # print(f'Length Of Query: {len(query)} | Document Length: {getDocumentInfo(docno)} | Number of documents containing term: {docFreq} | Term frequency in document: {termFreq}')
-                            # print(f'DocTerm: {element[0]} / QueryTerm: {tuple[0]}')
                             query_values.append(tuple[1])
                             document_values.append(element[1])
-                
-                # print(f'Query = {query_values}')
-                # print(f'Document = {document_values}')
                 i = 0
                 dotProduct = 0
                 NormsOfQuery = 0
                 NormsOfDoc = 0
-
                 while (i < len(query_values)):
                     queryValue = query_values[i]
                     docValue = document_values[i]
@@ -194,26 +164,15 @@ def main():
                     CoSimScore = dotProduct / NormsSqRoot
                     CoSimTuple = (docno, CoSimScore)
                     CoSim_document.append(CoSimTuple)
-                # else:
-                #     CoSimScore = 0 
-                # CoSimTuple = (docno, CoSimScore)
-                # CoSim_document.append(CoSimTuple)
-            # print(f'Document {docno} Scores: {document_tfidf_list}')
         CoSim_scores_list.append(CoSim_document)
 
     sortedList = findTopTenDocuments(CoSim_scores_list)
-    # print(sortedList)
     increment = 0
     for queryno in query_tfidf_map:
         CoSim_scores_map[queryno] = sortedList[increment]
         increment += 1
     
     outputToFile(CoSim_scores_map) 
-
-    # print(CoSim_scores_map)
-    # print(CoSim_scores_list)
-    # print(f'Docs In Corpus: {number_of_documents_in_corpus}')
-    # print(f'test: {math.log(0.55303)}')
 
 if __name__ == "__main__":
     main()
